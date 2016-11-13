@@ -1,0 +1,7 @@
+[package]
+name = "listusb"
+version = "0.1.0"
+authors = ["Sean Cross <sean@xobs.io>"]
+
+[dependencies]
+hidapi = "0.3.0"
