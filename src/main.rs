@@ -29,12 +29,15 @@ struct BlPkt {
 }
 
 fn main() {
-    
     let api = HidApi::new().expect("Failed to create API instance");
-    
-    let joystick = api.open(7119, 1486).expect("Failed to open device");
-    let mut pkt_num = 134;
-    let mut offset = 0u32;
+
+    println!("List of devices:");
+    for dev in api.devices() {
+        println!("    Device: {:?}", dev);
+    }
+    let joystick = api.open(0x1bcf, 0x05ce).expect("Failed to open device");
+    let mut pkt_num = 0;
+    let offset = 0u32;
 
     loop {
         let mut in_buf = [0u8; 9];
@@ -42,7 +45,7 @@ fn main() {
 
         out_buf[0] = 2;
         out_buf[1] = pkt_num;
-        out_buf[2] = 4;
+        out_buf[2] = 5;
 
         out_buf[3] = 0;
         out_buf[4] = 1;
@@ -54,10 +57,11 @@ fn main() {
 
         match joystick.write(&mut out_buf[..]) {
             Ok(_) => (),//println!("Wrote {} bytes", write_res),
-            Err(msg) => panic!("An error occurred while writing: {}", msg),
+            //Err(msg) => panic!("An error occurred while writing: {}", msg),
+            Err(msg) => {println!("An error occurred while writing: {}", msg); continue},
         }
         
-        std::thread::sleep(std::time::Duration::from_millis(100));
+        //std::thread::sleep(std::time::Duration::from_millis(20));
         match joystick.read_timeout(&mut in_buf[..], 1000) {
             Ok(res) if res == 0 => {println!("No data read"); continue; },
             Err(_) => {println!("Unknown error occurred when reading"); continue; },
@@ -72,7 +76,7 @@ fn main() {
                 println!("{}", data_string);
         
                 pkt_num = pkt_num.wrapping_add(1);
-                offset += 256;
+                //offset += 256;
             },
         }
     }
