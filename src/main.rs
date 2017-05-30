@@ -13,7 +13,6 @@
     along with hidapi-rs.  If not, see <http://www.gnu.org/licenses/>.
 ****************************************************************************/
 
-
 //! Opens a Thrustmaster T-Flight HOTAS X HID and reads data from it. This 
 //! example will not work unless such an HID is plugged in to your system. 
 //! Will update in the future to support all HIDs. 
@@ -21,8 +20,6 @@
 extern crate hidapi;
 use hidapi::HidApi;
 pub mod bootloader;
-
-const EP_NUM: u8 = 2;
 
 fn main() {
     let api = HidApi::new().expect("Failed to create API instance");
@@ -34,38 +31,9 @@ fn main() {
     }
     */
     let joystick = api.open(0x1bcf, 0x05ce).expect("Failed to open device");
-    println!("Product: {}", joystick.get_product_string().expect("Unable to get product string"));
+    let bl = bootloader::Bootloader::new(joystick);
 
-    let mut bl_cmd = bootloader::make_info_cmd(EP_NUM, 0);
-    let mut in_buf = [0u8; 8];
+    bl.print_info();
+    bl.echo_test();
 
-    // Dummy read to prime the HID buffer
-    joystick.read_timeout(&mut in_buf[..], 1).expect("BL_INFO returned no data");
-
-    joystick.write(&mut bl_cmd[..]).expect("Unable to write BL_INFO command");
-    let result = joystick.read_timeout(&mut in_buf[..], 100).expect("BL_INFO returned no data");
-    if result == 0 {
-        joystick.write(&mut bl_cmd[..]).expect("Unable to write BL_INFO command");
-        let result = joystick.read_timeout(&mut in_buf[..], 100).expect("BL_INFO returned no data");
-        if result == 0 {
-            panic!("Other end returned no data");
-        }
-        println!("Note: Got it on the second try.");
-    }
-    println!("Raw bootlaoder data: {:?}", in_buf);
-    println!("Decoded bootloader data: {:?}", bootloader::decode_bootloader_info(in_buf));
-
-    let mut echo_cmd = bootloader::make_echo_cmd(EP_NUM, 9);
-    joystick.write(&mut echo_cmd[..]).expect("Unable to write echo command");
-    let result = joystick.read(&mut in_buf[..]).expect("Unable to read echo command back");
-    assert!(result != 0);
-    println!("Orig: {:?},  Readback: {:?}", echo_cmd, in_buf);
-    // Sanity: Check that the data coming back is the data we sent.
-    assert!(in_buf[1] == 0); // Check that the return code is "no error"
-    assert!(in_buf[0] & 0xf0 == echo_cmd[1] & 0xf0); // Check that the sequence number is the same
-    assert!(in_buf[0] & 0x0f == 15); // Check that the return type is "Result"
-    for i in 2 .. 8 {
-        println!("Testing in_buf[{}]", i);
-        assert!(in_buf[i] == echo_cmd[i + 1]);
-    }
 }
