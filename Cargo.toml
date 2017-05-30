@@ -1,7 +1,8 @@
 [package]
-name = "listusb"
+name = "joy-updater"
 version = "0.1.0"
 authors = ["Sean Cross <sean@xobs.io>"]
 
 [dependencies]
 hidapi = "0.3.0"
+rand = "0.3.15"
