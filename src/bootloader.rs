@@ -2,15 +2,15 @@ extern crate rand;
 extern crate hidapi;
 use hidapi::HidDevice;
 
-pub struct Bootloader<'a> {
-    device: HidDevice<'a>,
-}
-
-const EP_NUM: u8 = 2;
+const EP_NUM: u8 = 1;
 const BOOTLOADER_INFO_CMD: u8 = 0;
 // const ERASE_BLOCK_CMD: u8 = 1;
 const ERASE_APP_CMD: u8 = 2;
 const ECHO_BACK_CMD: u8 = 9;
+
+pub struct Bootloader<'a> {
+    device: HidDevice<'a>,
+}
 
 #[derive(Debug)]
 pub enum BootloaderReason {
@@ -87,7 +87,6 @@ impl<'a> Bootloader<'a> {
             }
             println!("Note: Got it on the second try.");
         }
-        println!("Raw bootlaoder data: {:?}", in_buf);
         println!("Decoded bootloader data: {:?}",
                  Self::decode_bootloader_info(in_buf));
     }
@@ -98,13 +97,11 @@ impl<'a> Bootloader<'a> {
         self.device.write(&mut echo_cmd[..]).expect("Unable to write echo command");
         let result = self.device.read(&mut in_buf[..]).expect("Unable to read echo command back");
         assert!(result != 0);
-        println!("Orig: {:?},  Readback: {:?}", echo_cmd, in_buf);
         // Sanity: Check that the data coming back is the data we sent.
         assert!(in_buf[1] == 0); // Check that the return code is "no error"
         assert!(in_buf[0] & 0xf0 == echo_cmd[1] & 0xf0); // Check that the sequence number is the same
         assert!(in_buf[0] & 0x0f == 15); // Check that the return type is "Result"
         for i in 2..8 {
-            println!("Testing in_buf[{}]", i);
             assert!(in_buf[i] == echo_cmd[i + 1]);
         }
     }
