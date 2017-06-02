@@ -18,22 +18,45 @@
 //! Will update in the future to support all HIDs. 
 
 extern crate hidapi;
+extern crate clap;
+use clap::{Arg, App, SubCommand};
+
 use hidapi::HidApi;
 pub mod bootloader;
 
+use std::fs::File;
+
 fn main() {
+    let matches = App::new("Joyboot: Palawan bootloader API")
+        .version("1.2")
+        .author("Sean Cross <sean@xobs.io>")
+        .about("Communicates with the Palawan USB HID bootloader")
+        .arg(Arg::with_name("firmware")
+            .short("f")
+            .long("firmware")
+            .value_name("FIRMWARE")
+            .help("Firmware file")
+            .takes_value(true))
+        .get_matches();
+
+    let firmware_filename = matches.value_of("firmware").expect("Unable to get firmware path");
+    let firmware_file = File::open(firmware_filename).expect("Unable to open firmware file");
+
     let api = HidApi::new().expect("Failed to create API instance");
 
-    /*
     println!("List of devices:");
     for dev in api.devices() {
         println!("    Device: {:?}", dev);
     }
-    */
+
     let joystick = api.open(0x1bcf, 0x05ce).expect("Failed to open device");
-    let bl = bootloader::Bootloader::new(joystick);
+    let mut bl = bootloader::Bootloader::new(joystick);
 
     bl.print_info();
     bl.echo_test();
-
+    bl.echo_test();
+    bl.echo_test();
+    bl.erase_app();
+    bl.program_app(firmware_file);
+    bl.reboot();
 }
