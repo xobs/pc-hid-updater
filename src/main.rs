@@ -19,7 +19,7 @@
 
 extern crate hidapi;
 extern crate clap;
-use clap::{Arg, App, SubCommand};
+use clap::{Arg, App};
 
 use hidapi::HidApi;
 pub mod bootloader;

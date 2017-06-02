@@ -8,6 +8,7 @@ const BOOTLOADER_INFO_CMD: u8 = 0;
 // const ERASE_BLOCK_CMD: u8 = 1;
 const ERASE_APP_CMD: u8 = 2;
 const START_PROGRAMMING_CMD: u8 = 3;
+const PROGRAM_DATA_CMD: u8 = 4;
 const ECHO_BACK_CMD: u8 = 9;
 const REBOOT_CMD: u8 = 10;
 
@@ -94,7 +95,10 @@ impl<'a> Bootloader<'a> {
         println!("Product: {}",
                  dev.get_product_string().expect("Unable to get product string"));
 
-        Bootloader { device: dev, app_offset: 0, }
+        Bootloader {
+            device: dev,
+            app_offset: 0,
+        }
     }
 
     pub fn print_info(&mut self) {
@@ -200,12 +204,49 @@ impl<'a> Bootloader<'a> {
         let mut firmware_data = vec![];
         firmware.read_to_end(&mut firmware_data).expect("Unable to read firmware file");
 
-        let mut start_program = Self::make_start_cmd(EP_NUM,
-                                                     9,
-                                                     firmware_data.len(),
-                                                     self.app_offset);
+        let mut start_program =
+            Self::make_start_cmd(EP_NUM, 9, firmware_data.len(), self.app_offset);
         println!("Starting programming...");
         self.device.write(&mut start_program[..]).expect("Unable to start programming");
+
+        let result = self.device
+            .read_timeout(&mut in_buf[..], 400)
+            .expect("Unable to get result of start_program");
+        if result == 0 {
+            panic!("Board returned no data when getting result from start_program");
+        }
+        if in_buf[1] != 0 {
+            panic!("Address wasn't valid: {:?}",
+                   bootloader_error_from_u8(in_buf[1]));
+        }
+
+        let wind = firmware_data.chunks(7);
+        for pkt in wind {
+            let mut program_data = Self::make_program_data(EP_NUM, 1 & 0xf, pkt);
+            self.device.write(&mut program_data).expect("Unable to program data");
+            let result =
+                self.device.read_timeout(&mut in_buf[..], 40).expect("Unable to program data");
+            if result == 0 {
+                panic!("Unable to write data");
+            }
+        }
+    }
+
+    fn make_program_data(ep_num: u8, seq_num: u8, data: &[u8]) -> Vec<u8> {
+        let mut data_thing = vec![];
+        for dat in data {
+            data_thing.push(*dat);
+        }
+        data_thing.resize(7, 0xff);
+        vec![ep_num,
+             PROGRAM_DATA_CMD | ((seq_num & 0xf) << 4),
+             data_thing[0],
+             data_thing[1],
+             data_thing[2],
+             data_thing[3],
+             data_thing[4],
+             data_thing[5],
+             data_thing[6]]
     }
 
     fn make_start_cmd(ep_num: u8, seq_num: u8, count: usize, offset: u32) -> Vec<u8> {
